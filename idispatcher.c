@@ -41,7 +41,7 @@ Process * parseProcess(Process * processArray, char * resources[], char * line, 
 
 int main(int argc, char *argv[] ) {
     // int i = 0;
-    char * readyQueue = malloc(sizeof(char) * 1000 + 1); // assuming 1000 processes max
+    char * readyQueue = malloc(sizeof(char) * 1000 + 1); // assuming 1000 char max
     Process * processArray = malloc(1000 * sizeof(Process)); // assuming size 1000
     Process process;
     process.processId = 0;
@@ -112,6 +112,9 @@ Process * parseProcess(Process * processArray, char * resources[], char * line, 
                 break;
         }
 
+        printf("PROCESS %d\n", *processRunning);
+        printf("READYQUEUE%s\n", readyQueue);
+
     } else if (strcmp(values, "R") == 0) {
         char * resReq = NULL;
         char * idS;
@@ -127,27 +130,30 @@ Process * parseProcess(Process * processArray, char * resources[], char * line, 
         free(tempBuffer);
 
         if (*processRunning == id) {
-            printf("A PROCESS %d\n", *processRunning);
-            printf("READYQUEUE %s\n", readyQueue);
-            char * nextProcess = strtok(readyQueue, " ");
-            *processRunning= atoi(nextProcess); // run next in queue
-            strcpy(readyQueue, readyQueue + 2);
-            printf("A PROCESS %d\n", *processRunning);
-            printf("READYQUEUE %s\n", readyQueue);
+            if (strlen(readyQueue) < 2) {
+                *processRunning = 0;
+            } else {
+                char * nextProcess = malloc(sizeof(char) * strlen(readyQueue));
+                strncpy(nextProcess, readyQueue, 2);
+                *processRunning= atoi(nextProcess); // run next in queue
+                memmove(readyQueue, readyQueue + 2, strlen(readyQueue)); // get rid of first process in queue
+                free(nextProcess);
+            }
+            printf("PROCESS %d\n", *processRunning);
+            printf("READYQUEUE%s\n", readyQueue);
         } else {
-            printf("B PROCESS %d\n", *processRunning);
-            printf("READYQUEUE %s\n", readyQueue);
             char * temp = malloc(sizeof(char) * strlen(idS) + 2);
             strcpy(temp, " ");
             strcat(temp, idS);
             replace_str(readyQueue, temp, "");
-            printf("B PROCESS %d\n", *processRunning);
-            printf("READYQUEUE %s\n", readyQueue);
-            exit(0);
+            free(temp);
+            printf("PROCESS %d\n", *processRunning);
+            printf("READYQUEUE%s\n", readyQueue);
         }
     } else if (strcmp(values, "I") == 0) {
         strtok(NULL, " ");
-        int interruptId = atoi(strtok(NULL, " "));
+        char * interruptIds = strtok(NULL, " ");
+        int interruptId = atoi(interruptIds);
         for (int i = 1; i < *arrayCount; i++) {
             if (processArray[i].processId == interruptId) {
                 printf("process %d\n", processArray[i].processId);
@@ -159,17 +165,58 @@ Process * parseProcess(Process * processArray, char * resources[], char * line, 
                 break;
             }
         }
+
+        if (*processRunning == 0 && strlen(readyQueue) < 2) {
+            *processRunning = interruptId;
+        } else {
+            strcat(readyQueue, " ");
+            strcat(readyQueue, interruptIds);
+        }
+
+        printf("PROCESS %d\n", *processRunning);
+        printf("READYQUEUE%s\n", readyQueue);
+
     } else if (strcmp(values, "T") == 0) {
         char readyProcess[10000]; // contains currently running process to be placed in queue
         int tempProcess = *processRunning; // temp variable that contains running process
-        *processRunning = atoi(strtok(readyQueue, " "));
-        strcpy(readyQueue, readyQueue + 2);
-        strcat(readyQueue, " ");
-        sprintf(readyProcess,"%d", tempProcess);
-        strcat(readyQueue, readyProcess);
+
+        if (strlen(readyQueue) > 1) {
+            *processRunning = atoi(strtok(readyQueue, " "));
+            strcpy(readyQueue, readyQueue + 2);
+            strcat(readyQueue, " ");
+            sprintf(readyProcess,"%d", tempProcess);
+            strcat(readyQueue, readyProcess);
+        }
+
+        printf("PROCESS %d\n", *processRunning);
+        printf("READYQUEUE%s\n", readyQueue);
 
     } else if (strcmp(values, "E") == 0) {
-        
+
+        char * id = strtok(NULL, " ");
+        char * temp = malloc(sizeof(char) * strlen(id) + 2);
+        strcpy(temp, " ");
+        strcat(temp, id);
+
+        if (*processRunning == atoi(id)) {
+            if (strlen(readyQueue) < 2) {
+                *processRunning = 0;
+            } else {
+                printf("wats up%s\n", readyQueue);
+                char * nextProcess = malloc(sizeof(char) * strlen(readyQueue));
+                strncpy(nextProcess, readyQueue, 2);
+                *processRunning= atoi(nextProcess); // run next in queue
+                memmove(readyQueue, readyQueue + 2, strlen(readyQueue));
+                printf("wats up%s\n", readyQueue);
+                free(nextProcess);
+            }
+        } else {
+            replace_str(readyQueue, temp, "");
+            free(temp);
+        }
+
+        printf("PROCESS %d\n", *processRunning);
+        printf("READYQUEUE%s\n", readyQueue);
     }
     return processArray;
 }
