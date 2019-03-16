@@ -7,6 +7,8 @@
 // must be C/R/T/I and 3rd token an integer > 0
 //nvm
 
+
+
 /**
  * Struct of Process containing various Process attributes
  **/
@@ -19,11 +21,27 @@ typedef struct {
     int timeBlocked;
 } Process;
 
+char *replace_str(char *str, char *orig, char *rep)
+{
+  static char buffer[4096];
+  char *p;
+
+  if(!(p = strstr(str, orig)))  // Is 'orig' even in 'str'?
+    return str;
+
+  strncpy(buffer, str, p-str); // Copy characters from 'str' start to 'orig' st$
+  buffer[p-str] = '\0';
+
+  sprintf(buffer+(p-str), "%s%s", rep, p+strlen(orig));
+
+  return buffer;
+}
 // void printOutput(Process * processArray[]); // prints process time outputs
-Process * parseProcess(Process * processArray, char * resources[], char * line, int * arrayCount); // parses lines from file
+Process * parseProcess(Process * processArray, char * resources[], char * line, char * readyQueue, int * processRunning, int * arrayCount); // parses lines from file
 
 int main(int argc, char *argv[] ) {
     // int i = 0;
+    char * readyQueue = malloc(sizeof(char) * 1000 + 1); // assuming 1000 processes max
     Process * processArray = malloc(1000 * sizeof(Process)); // assuming size 1000
     Process process;
     process.processId = 0;
@@ -37,6 +55,7 @@ int main(int argc, char *argv[] ) {
     // ^Index represents resource, value represents process concactenated with arrival time
     // Special Case - Index 0 of Array represents System Idle Process
     int arrayCount = 1; // represents current size of array-1
+    int processRunning = 0; // represents current running process (0 if none/idle)
 
     char buffer[1000]; // buffer with size 1000 to store file line input
     // char line[1000];
@@ -50,7 +69,7 @@ int main(int argc, char *argv[] ) {
             continue;
         }
 
-        processArray = parseProcess(processArray, resources, buffer, &arrayCount);
+        processArray = parseProcess(processArray, resources, buffer, readyQueue, &processRunning, &arrayCount);
     }
 
     for (int i = 1; i < arrayCount; i++) {
@@ -66,10 +85,11 @@ int main(int argc, char *argv[] ) {
 //     return;
 // }
 
-Process * parseProcess(Process * processArray, char * resources[], char * line, int * arrayCount) {
+Process * parseProcess(Process * processArray, char * resources[], char * line, char * readyQueue, int * processRunning, int * arrayCount) {
     char * values = NULL;
     char * arrivalTime = strtok(line, " "); // arrival time
     values = strtok(NULL, " "); // state
+
     if (strcmp(values, "C") == 0) { // creation
         values = strtok(NULL, " "); // process ID
         Process process;
@@ -81,26 +101,51 @@ Process * parseProcess(Process * processArray, char * resources[], char * line, 
         process.timeBlocked = 0;
         processArray[*arrayCount] = process;
         (*arrayCount)++;
+
+        switch(*processRunning) { // Manages ready queue and currently running process
+            case 0:
+                *processRunning = atoi(values);
+                break;
+            default:
+                strcat(readyQueue, " ");
+                strcat(readyQueue, values);
+                break;
+        }
+
     } else if (strcmp(values, "R") == 0) {
         char * resReq = NULL;
+        char * idS;
         int id = 0;
         char * tempBuffer = malloc(sizeof(char*) * 100);
         resReq = strtok(NULL, " "); // resource requested
-        // strcpy(tempBuffer, arrivalTime);
-        // strcat(tempBuffer, " ");
-        // strcat(tempBuffer, strtok(NULL, " "));
-        // resources[resReq] = tempBuffer;
-
-        id = atoi(strtok(NULL, " "));
-        printf("IDIDIDID %d\n", id);
+        idS = strtok(NULL, " ");
+        id = atoi(idS);
         resources[id] = (char *)malloc(sizeof(char) * (strlen(arrivalTime) + 100 + 2)); //2 for null terminator + space
         strcpy(resources[id], arrivalTime);
         strcat(resources[id], " ");
         strcat(resources[id], resReq);
-
         free(tempBuffer);
+
+        if (*processRunning == id) {
+            printf("A PROCESS %d\n", *processRunning);
+            printf("READYQUEUE %s\n", readyQueue);
+            char * nextProcess = strtok(readyQueue, " ");
+            *processRunning= atoi(nextProcess); // run next in queue
+            strcpy(readyQueue, readyQueue + 2);
+            printf("A PROCESS %d\n", *processRunning);
+            printf("READYQUEUE %s\n", readyQueue);
+        } else {
+            printf("B PROCESS %d\n", *processRunning);
+            printf("READYQUEUE %s\n", readyQueue);
+            char * temp = malloc(sizeof(char) * strlen(idS) + 2);
+            strcpy(temp, " ");
+            strcat(temp, idS);
+            replace_str(readyQueue, temp, "");
+            printf("B PROCESS %d\n", *processRunning);
+            printf("READYQUEUE %s\n", readyQueue);
+            exit(0);
+        }
     } else if (strcmp(values, "I") == 0) {
-        // printf("why hello\n");
         strtok(NULL, " ");
         int interruptId = atoi(strtok(NULL, " "));
         for (int i = 1; i < *arrayCount; i++) {
@@ -109,19 +154,22 @@ Process * parseProcess(Process * processArray, char * resources[], char * line, 
                 printf("er %d\n", atoi(arrivalTime));
                 printf("re %s\n", resources[interruptId]);
                 processArray[i].timeBlocked += (atoi(arrivalTime) - atoi(strtok(resources[interruptId], " ")));
-printf("i %d\n", i);
                 printf("should be good %d\n", processArray[i].timeBlocked);
-                // resources[resReq][0] = '\0';
-                // memset(resources[resReq], 0, sizeof(char));
                 free(resources[interruptId]);
-                // memset(resources[resReq], 0, sizeof(char));
                 break;
             }
         }
     } else if (strcmp(values, "T") == 0) {
+        char readyProcess[10000]; // contains currently running process to be placed in queue
+        int tempProcess = *processRunning; // temp variable that contains running process
+        *processRunning = atoi(strtok(readyQueue, " "));
+        strcpy(readyQueue, readyQueue + 2);
+        strcat(readyQueue, " ");
+        sprintf(readyProcess,"%d", tempProcess);
+        strcat(readyQueue, readyProcess);
 
     } else if (strcmp(values, "E") == 0) {
-
+        
     }
     return processArray;
 }
